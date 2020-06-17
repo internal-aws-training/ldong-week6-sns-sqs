@@ -1,0 +1,41 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Cloudformation template to create a SNS & SQS
+
+Resources:
+  CloudwatchTriggerSNSEveryFiveMinutesRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Trigger SNS Rule
+      State: ENABLED
+      ScheduleExpression: rate(5 minutes)
+      Targets:
+        - Arn: !GetAtt: ldongSNSTopic.Arn
+          Id: ldong-cloudwatch-trigger-sns-rule
+
+  ### !GetAtt - https://docs.aws.amazon.com/zh_cn/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-getatt.html
+
+  ldongSNSTopic:
+    Type: AWS::SNS::Topic
+    TopicName: ldong-sns-topic
+    Properties:
+      Subscription:
+        - Endpoint: !GetAtt ldongSourceQueue.Arn
+          Protocol: sqs
+        - Endpoint: "ldong@thoughtworks.com"
+          Protocol: email
+
+  ldongSourceQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ldong-source-queue
+      MessageRetentionPeriod: 104800
+      VisibilityTimeout: 300
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ldongDeadLetterQueue.Arn
+        maxReceiveCount: 1
+
+  ldongDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ldong-dead-letter-queue
